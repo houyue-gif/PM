@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id         String      @id @default(cuid())
+  name       String
+  workspaces Workspace[]
+}
+
+model Workspace {
+  id             String         @id @default(cuid())
+  name           String
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  teams          Team[]
+  projects       Project[]
+  members        Member[]
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  workspaceId String
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id])
+  members     TeamMember[]
+}
+
+model Member {
+  id             String          @id @default(cuid())
+  name           String
+  email          String          @unique
+  workspaceId    String
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id])
+  roleId         String
+  role           Role            @relation(fields: [roleId], references: [id])
+  teamMembership TeamMember[]
+  projectMembers ProjectMember[]
+}
+
+model TeamMember {
+  id       String @id @default(cuid())
+  teamId   String
+  memberId String
+  team     Team   @relation(fields: [teamId], references: [id])
+  member   Member @relation(fields: [memberId], references: [id])
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String
+  members     Member[]
+  permissions Permission[]
+}
+
+model Permission {
+  id          String @id @default(cuid())
+  key         String @unique
+  description String
+  roleId      String
+  role        Role   @relation(fields: [roleId], references: [id])
+}
+
+model Project {
+  id          String          @id @default(cuid())
+  name        String
+  description String
+  status      String
+  ownerId     String
+  workspaceId String
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
+  members     ProjectMember[]
+  tasks       Task[]
+}
+
+model ProjectMember {
+  id        String  @id @default(cuid())
+  projectId String
+  memberId  String
+  project   Project @relation(fields: [projectId], references: [id])
+  member    Member  @relation(fields: [memberId], references: [id])
+}
+
+model Task {
+  id          String      @id @default(cuid())
+  title       String
+  description String
+  status      String
+  priority    String
+  dueDate     DateTime?
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id])
+  assigneeId  String
+  creatorId   String
+  watchers    TaskWatcher[]
+  comments    Comment[]
+  tagId       String?
+  tag         Tag?        @relation(fields: [tagId], references: [id])
+}
+
+model TaskWatcher {
+  id       String @id @default(cuid())
+  taskId   String
+  memberId String
+  task     Task   @relation(fields: [taskId], references: [id])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  taskId    String
+  memberId  String
+  content   String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  scope     String
+  scopeId   String
+  actorId   String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  memberId   String
+  type       String
+  title      String
+  targetType String
+  targetId   String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String
+  color String
+  tasks Task[]
+}
+
+model RecentVisit {
+  id        String   @id @default(cuid())
+  memberId  String
+  type      String
+  targetId  String
+  label     String
+  visitedAt DateTime @default(now())
+}
