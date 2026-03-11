@@ -2,10 +2,10 @@
 
 ## 技术栈确认
 - Next.js 14 (App Router) + TypeScript
-- Tailwind CSS
-- React Query（数据拉取）
+- Tailwind CSS（设计系统基础样式）
+- React Query（数据拉取 + 缓存刷新）
 - Zod（API 入参校验）
-- Prisma + PostgreSQL schema（已建模，P0 以 mock API 演示）
+- Prisma + PostgreSQL schema（已建模，P0 通过 mock API 演示）
 
 ## 目录结构方案
 - `app/` 路由与 API
@@ -13,6 +13,7 @@
 - `lib/` mock 数据、API helper、工具
 - `types/` 领域模型
 - `prisma/` 数据库 schema
+- `preview/` 直接可打开的 HTML 预览页面
 
 ## 数据模型方案
 覆盖 Organization、Workspace、Team、Member、Role、Permission、Project、ProjectMember、Task、TaskWatcher、Comment、ActivityLog、Notification、Tag、RecentVisit。
@@ -38,3 +39,7 @@
 - API：`app/api/*`
 - 数据与类型：`lib/mock-db.ts`、`types/domain.ts`
 - DB 建模：`prisma/schema.prisma`
+- HTML 预览：`preview/*.html` + `preview/style.css`
+
+## HTML 预览入口
+- 主入口：`preview/index.html`
