@@ -9,17 +9,83 @@ export interface Role { id: string; name: string; permissions: string[]; }
 export interface Permission { id: string; key: string; description: string; }
 export interface Tag { id: string; name: string; color: string; }
 
+export type ProjectStatus = "draft" | "active" | "on_hold" | "completed" | "closed" | "archived";
+export type ProjectPhaseType = "initiation" | "planning" | "execution" | "acceptance" | "retrospective";
+export type ProjectRiskLevel = "low" | "medium" | "high" | "critical";
+
 export interface Project {
   id: string;
+  code: string;
   name: string;
   description: string;
-  status: "active" | "on_hold" | "completed";
+  status: ProjectStatus;
+  phase: ProjectPhaseType;
+  type: "product" | "delivery" | "ops" | "research";
+  businessLine: string;
   ownerId: string;
+  adminIds: string[];
   memberIds: string[];
+  teamId: string;
   workspaceId: string;
   startDate: string;
   endDate: string;
+  progress: number;
+  scheduleDelta: number;
   health: "good" | "risk" | "critical";
+  riskLevel: ProjectRiskLevel;
+  visibility: "workspace" | "team" | "private";
+  tagIds: string[];
+  archived: boolean;
+  templateId?: string;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface ProjectPhase {
+  id: string;
+  projectId: string;
+  name: string;
+  type: ProjectPhaseType;
+  ownerId: string;
+  startDate: string;
+  endDate: string;
+  status: "pending" | "active" | "done" | "delayed";
+  keyNode: boolean;
+  note?: string;
+}
+
+export interface Milestone {
+  id: string;
+  projectId: string;
+  name: string;
+  kind: "release" | "quality_gate" | "go_live" | "business";
+  targetDate: string;
+  actualDate?: string;
+  status: "pending" | "on_track" | "at_risk" | "done" | "delayed";
+  ownerId: string;
+  criteria: string;
+  relatedTaskCount: number;
+  note?: string;
+  keyNode: boolean;
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  projectType: Project["type"];
+  defaultPhaseNames: string[];
+  defaultMilestones: Array<{ name: string; kind: Milestone["kind"] }>;
+  defaultTags: string[];
+  system: boolean;
+  enabled: boolean;
+}
+
+export interface ProjectMember {
+  id: string;
+  projectId: string;
+  memberId: string;
+  role: "admin" | "member" | "observer";
 }
 
 export interface Task {
@@ -53,6 +119,7 @@ export interface ActivityLog {
   scopeId: string;
   actorId: string;
   message: string;
+  eventType?: "project_update" | "owner_change" | "phase_change" | "milestone_change" | "risk_update" | "comment";
   createdAt: string;
 }
 

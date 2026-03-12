@@ -1,26 +1,123 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getJson, postJson } from "@/lib/api";
-import { Project } from "@/types/domain";
+import { getJson, patchJson } from "@/lib/api";
+import { Member, Project, Tag, Team } from "@/types/domain";
+
+const viewKey = "pm_projects_view";
+
+type DataResp = { items: Project[]; options: { members: Member[]; teams: Team[]; tags: Tag[] } };
 
 export function ProjectList() {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [desc, setDesc] = useState("");
   const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ["projects"], queryFn: () => getJson<{ items: Project[] }>("/app/api/projects") });
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("all");
+  const [phase, setPhase] = useState("all");
+  const [type, setType] = useState("all");
+  const [risk, setRisk] = useState("all");
+  const [onlyArchived, setOnlyArchived] = useState(false);
+  const [sort, setSort] = useState("updatedAt");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [view, setView] = useState<"table" | "card">(() => (typeof window === "undefined" ? "table" : ((localStorage.getItem(viewKey) as "table" | "card") || "table")));
+  const [batchOwner, setBatchOwner] = useState("u1");
+
+  const { data } = useQuery({ queryKey: ["projects", onlyArchived], queryFn: () => getJson<DataResp>(`/api/projects?archived=${onlyArchived}`) });
+
+  const members = data?.options.members || [];
+  const teams = data?.options.teams || [];
+  const tags = data?.options.tags || [];
+
+  const filtered = useMemo(() => {
+    const items = (data?.items || []).filter((p) => {
+      const owner = members.find((m) => m.id === p.ownerId)?.name || "";
+      const hit = [p.name, p.code, owner].join(" ").toLowerCase().includes(q.toLowerCase());
+      return hit && (status === "all" || p.status === status) && (phase === "all" || p.phase === phase) && (type === "all" || p.type === type) && (risk === "all" || p.riskLevel === risk);
+    });
+    return items.sort((a, b) => {
+      if (sort === "updatedAt") return +new Date(b.updatedAt) - +new Date(a.updatedAt);
+      if (sort === "createdAt") return +new Date(b.createdAt) - +new Date(a.createdAt);
+      if (sort === "endDate") return +new Date(a.endDate) - +new Date(b.endDate);
+      if (sort === "risk") return ["low", "medium", "high", "critical"].indexOf(b.riskLevel) - ["low", "medium", "high", "critical"].indexOf(a.riskLevel);
+      return b.scheduleDelta - a.scheduleDelta;
+    });
+  }, [data, q, status, phase, type, risk, sort, members]);
+
+  const updateView = (v: "table" | "card") => {
+    setView(v);
+    localStorage.setItem(viewKey, v);
+  };
+
+  const toggle = (id: string) => setSelected((arr) => (arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]));
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end"><Button onClick={() => setOpen(true)}>新建项目</Button></div>
-      <div className="grid gap-3 md:grid-cols-2">{data?.items.map((p) => <Card key={p.id} title={p.name}><p className="mb-3 text-sm text-slate-600">{p.description}</p><Link className="text-sm text-blue-600" href={`/app/projects/${p.id}`}>进入项目概览</Link></Card>)}</div>
-      {open && <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30"><div className="w-full max-w-md rounded-xl bg-white p-4"><h3 className="mb-3 font-semibold">新建项目</h3><div className="space-y-2"><Input placeholder="项目名称" value={name} onChange={(e)=>setName(e.target.value)} /><Input placeholder="项目描述" value={desc} onChange={(e)=>setDesc(e.target.value)} /></div><div className="mt-4 flex justify-end gap-2"><button onClick={()=>setOpen(false)}>取消</button><Button onClick={async()=>{await postJson('/app/api/projects',{name,description:desc});setOpen(false);setName('');setDesc('');qc.invalidateQueries({queryKey:['projects']});}}>创建</Button></div></div></div>}
+      <div className="flex items-center gap-2">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索项目名称 / 编码 / 负责人" className="max-w-sm" />
+        <select className="rounded border px-2 py-2 text-sm" value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">状态</option><option value="draft">草稿</option><option value="active">进行中</option><option value="on_hold">暂停中</option><option value="completed">已完成</option><option value="closed">已关闭</option><option value="archived">已归档</option></select>
+        <select className="rounded border px-2 py-2 text-sm" value={phase} onChange={(e) => setPhase(e.target.value)}><option value="all">阶段</option><option value="initiation">立项</option><option value="planning">规划</option><option value="execution">执行</option><option value="acceptance">验收</option><option value="retrospective">复盘</option></select>
+        <select className="rounded border px-2 py-2 text-sm" value={type} onChange={(e) => setType(e.target.value)}><option value="all">类型</option><option value="product">产品</option><option value="delivery">交付</option><option value="ops">运维</option><option value="research">研究</option></select>
+        <select className="rounded border px-2 py-2 text-sm" value={risk} onChange={(e) => setRisk(e.target.value)}><option value="all">风险</option><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="critical">严重</option></select>
+        <select className="rounded border px-2 py-2 text-sm" value={sort} onChange={(e) => setSort(e.target.value)}><option value="updatedAt">最近更新时间</option><option value="createdAt">创建时间</option><option value="endDate">计划结束时间</option><option value="risk">风险等级</option><option value="delta">进度偏差</option></select>
+        <label className="ml-2 flex items-center gap-1 text-sm"><input type="checkbox" checked={onlyArchived} onChange={(e) => setOnlyArchived(e.target.checked)} /> 已归档</label>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="secondary" onClick={() => updateView("table")}>表格</Button>
+          <Button variant="secondary" onClick={() => updateView("card")}>卡片</Button>
+          <Link href="/app/projects/templates"><Button variant="secondary">项目模板</Button></Link>
+          <Link href="/app/projects/new"><Button>新建项目</Button></Link>
+        </div>
+      </div>
+
+      {selected.length > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-sm">
+          <span>已选 {selected.length} 项</span>
+          <Button variant="secondary" onClick={async () => { await patchJson("/api/projects", { ids: selected, action: onlyArchived ? "restore" : "archive" }); setSelected([]); qc.invalidateQueries({ queryKey: ["projects"] }); }}>{onlyArchived ? "批量恢复" : "批量归档"}</Button>
+          <select className="rounded border px-2 py-1" value={batchOwner} onChange={(e) => setBatchOwner(e.target.value)}>{members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
+          <Button variant="secondary" onClick={async () => { await patchJson("/api/projects", { ids: selected, action: "change_owner", ownerId: batchOwner }); qc.invalidateQueries({ queryKey: ["projects"] }); }}>批量改负责人</Button>
+          <Button variant="secondary" onClick={async () => { await patchJson("/api/projects", { ids: selected, action: "change_tags", tagIds: ["tag4"] }); qc.invalidateQueries({ queryKey: ["projects"] }); }}>批量打标签</Button>
+        </div>
+      )}
+
+      {view === "table" ? (
+        <div className="card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr><th className="p-3"></th><th>项目名称</th><th>项目编码</th><th>类型</th><th>阶段</th><th>状态</th><th>负责人</th><th>所属团队</th><th>计划结束</th><th>进度</th><th>风险</th><th>最近更新</th></tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="p-3"><input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggle(p.id)} /></td>
+                  <td><Link href={`/app/projects/${p.id}`} className="text-blue-700">{p.name}</Link></td>
+                  <td>{p.code}</td><td>{p.type}</td><td>{p.phase}</td><td>{p.status}</td>
+                  <td>{members.find((m) => m.id === p.ownerId)?.name}</td>
+                  <td>{teams.find((t) => t.id === p.teamId)?.name}</td>
+                  <td>{p.endDate.slice(0, 10)}</td>
+                  <td><div className="h-2 w-24 rounded bg-slate-200"><div className="h-2 rounded bg-blue-600" style={{ width: `${p.progress}%` }} /></div><span className="text-xs text-slate-500">{p.progress}%</span></td>
+                  <td><span className={`rounded px-2 py-0.5 text-xs ${p.riskLevel === "critical" ? "bg-red-100 text-red-700" : p.riskLevel === "high" ? "bg-orange-100 text-orange-700" : p.riskLevel === "medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{p.riskLevel}</span></td>
+                  <td>{p.updatedAt.slice(0, 10)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((p) => (
+            <Card key={p.id} title={p.name}>
+              <p className="text-xs text-slate-500">{p.code} · {p.type} · {p.phase}</p>
+              <p className="mt-2 text-sm text-slate-600 line-clamp-2">{p.description}</p>
+              <div className="mt-3 h-2 rounded bg-slate-200"><div className="h-2 rounded bg-blue-600" style={{ width: `${p.progress}%` }} /></div>
+              <div className="mt-3 flex items-center justify-between text-xs text-slate-500"><span>负责人：{members.find((m) => m.id === p.ownerId)?.name}</span><span>{p.endDate.slice(0,10)}</span></div>
+              <div className="mt-3 flex items-center justify-between"><Link href={`/app/projects/${p.id}`} className="text-sm text-blue-700">进入详情</Link><span className="text-xs">风险 {p.riskLevel}</span></div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

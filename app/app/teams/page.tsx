@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { getJson } from "@/lib/api";
 
 export default function TeamsPage() {
-  const { data } = useQuery({ queryKey: ["teams"], queryFn: () => getJson<{ items: Array<{ id: string; name: string; memberIds: string[] }> }>("/app/api/teams") });
+  const { data } = useQuery({ queryKey: ["teams"], queryFn: () => getJson<{ items: Array<{ id: string; name: string; memberIds: string[] }> }>("/api/teams") });
   const [open, setOpen] = useState(false);
 
   return (
