@@ -18,13 +18,13 @@ export function Topbar() {
   const [searchFocus, setSearchFocus] = useState(false);
 
   useEffect(() => {
-    getJson<{ items: RecentItem[] }>("/app/api/recent-visits").then((res) => setRecent(res.items));
+    getJson<{ items: RecentItem[] }>("/api/recent-visits").then((res) => setRecent(res.items));
   }, []);
 
   useEffect(() => {
     const run = async () => {
       if (!q.trim()) return setResults([]);
-      const data = await getJson<{ items: SearchItem[] }>(`/app/api/search?q=${encodeURIComponent(q)}`);
+      const data = await getJson<{ items: SearchItem[] }>(`/api/search?q=${encodeURIComponent(q)}`);
       setResults(data.items || []);
     };
     const id = setTimeout(run, 200);
