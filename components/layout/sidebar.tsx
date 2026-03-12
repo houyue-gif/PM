@@ -7,8 +7,12 @@ import { cn } from "@/lib/utils";
 const items = [
   ["工作台", "/app"],
   ["项目", "/app/projects"],
+  ["项目模板", "/app/projects/templates"],
   ["任务", "/app/tasks"],
   ["我的任务", "/app/my-tasks"],
+  ["待验收", "/app/tasks/acceptance"],
+  ["任务甘特图", "/app/tasks/gantt"],
+  ["任务设置", "/app/tasks/settings"],
   ["团队", "/app/teams"],
   ["成员", "/app/members"],
   ["通知", "/app/notifications"],

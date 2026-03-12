@@ -3,44 +3,41 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-model Organization {
-  id         String      @id @default(cuid())
-  name       String
-  workspaces Workspace[]
-}
-
 model Workspace {
-  id             String         @id @default(cuid())
-  name           String
-  organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id])
-  teams          Team[]
-  projects       Project[]
-  members        Member[]
+  id       String    @id @default(cuid())
+  name     String
+  members  Member[]
+  teams    Team[]
+  projects Project[]
 }
 
 model Team {
-  id          String       @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   workspaceId String
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
   members     TeamMember[]
+  projects    Project[]
 }
 
 model Member {
   id             String          @id @default(cuid())
   name           String
   email          String          @unique
+  role           String
   workspaceId    String
   workspace      Workspace       @relation(fields: [workspaceId], references: [id])
-  roleId         String
-  role           Role            @relation(fields: [roleId], references: [id])
   teamMembership TeamMember[]
   projectMembers ProjectMember[]
+  ownedProjects  Project[]       @relation("ProjectOwner")
+  phases         ProjectPhase[]
+  milestones     Milestone[]
+  ownedTasks     Task[]          @relation("TaskOwner")
+  acceptedTasks  Task[]          @relation("TaskAcceptor")
 }
 
 model TeamMember {
@@ -49,74 +46,218 @@ model TeamMember {
   memberId String
   team     Team   @relation(fields: [teamId], references: [id])
   member   Member @relation(fields: [memberId], references: [id])
+  @@unique([teamId, memberId])
 }
 
-model Role {
-  id          String       @id @default(cuid())
-  name        String
-  members     Member[]
-  permissions Permission[]
-}
-
-model Permission {
-  id          String @id @default(cuid())
-  key         String @unique
-  description String
-  roleId      String
-  role        Role   @relation(fields: [roleId], references: [id])
+model Tag {
+  id       String @id @default(cuid())
+  name     String @unique
+  color    String
+  projects ProjectTag[]
+  tasks    TaskTag[]
 }
 
 model Project {
-  id          String          @id @default(cuid())
-  name        String
-  description String
-  status      String
-  ownerId     String
-  workspaceId String
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
-  members     ProjectMember[]
-  tasks       Task[]
+  id            String           @id @default(cuid())
+  code          String           @unique
+  name          String
+  description   String
+  status        String
+  phase         String
+  type          String
+  businessLine  String
+  ownerId       String
+  owner         Member           @relation("ProjectOwner", fields: [ownerId], references: [id])
+  teamId        String
+  team          Team             @relation(fields: [teamId], references: [id])
+  workspaceId   String
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id])
+  visibility    String           @default("workspace")
+  archived      Boolean          @default(false)
+  progress      Int              @default(0)
+  scheduleDelta Int              @default(0)
+  health        String           @default("good")
+  riskLevel     String           @default("low")
+  templateId    String?
+  template      ProjectTemplate? @relation(fields: [templateId], references: [id])
+  startDate     DateTime
+  endDate       DateTime
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  members       ProjectMember[]
+  tags          ProjectTag[]
+  phases        ProjectPhase[]
+  milestones    Milestone[]
+  tasks         Task[]
 }
 
 model ProjectMember {
   id        String  @id @default(cuid())
   projectId String
   memberId  String
+  role      String  @default("member")
   project   Project @relation(fields: [projectId], references: [id])
   member    Member  @relation(fields: [memberId], references: [id])
+  @@unique([projectId, memberId])
+}
+
+model ProjectTag {
+  id        String  @id @default(cuid())
+  projectId String
+  tagId     String
+  project   Project @relation(fields: [projectId], references: [id])
+  tag       Tag     @relation(fields: [tagId], references: [id])
+  @@unique([projectId, tagId])
+}
+
+model ProjectPhase {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  name      String
+  type      String
+  ownerId   String
+  owner     Member   @relation(fields: [ownerId], references: [id])
+  startDate DateTime
+  endDate   DateTime
+  status    String
+  keyNode   Boolean  @default(false)
+  note      String?
+  tasks     Task[]
+}
+
+model Milestone {
+  id               String   @id @default(cuid())
+  projectId        String
+  project          Project  @relation(fields: [projectId], references: [id])
+  name             String
+  kind             String
+  targetDate       DateTime
+  actualDate       DateTime?
+  status           String
+  ownerId          String
+  owner            Member   @relation(fields: [ownerId], references: [id])
+  criteria         String
+  relatedTaskCount Int      @default(0)
+  keyNode          Boolean  @default(false)
+  note             String?
+  tasks            Task[]
+}
+
+model ProjectTemplate {
+  id                String   @id @default(cuid())
+  name              String
+  description       String
+  projectType       String
+  defaultPhaseNames Json
+  defaultMilestones Json
+  defaultTags       Json
+  isSystem          Boolean  @default(false)
+  enabled           Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  projects          Project[]
 }
 
 model Task {
-  id          String      @id @default(cuid())
-  title       String
-  description String
-  status      String
-  priority    String
-  dueDate     DateTime?
-  projectId   String
-  project     Project     @relation(fields: [projectId], references: [id])
-  assigneeId  String
-  creatorId   String
-  watchers    TaskWatcher[]
-  comments    Comment[]
-  tagId       String?
-  tag         Tag?        @relation(fields: [tagId], references: [id])
+  id                   String      @id @default(cuid())
+  taskNo               String      @unique
+  title                String
+  description          String      @default("")
+  projectId            String
+  project              Project     @relation(fields: [projectId], references: [id])
+  phaseId              String?
+  phase                ProjectPhase? @relation(fields: [phaseId], references: [id])
+  milestoneId          String?
+  milestone            Milestone?  @relation(fields: [milestoneId], references: [id])
+  parentTaskId         String?
+  parentTask           Task?       @relation("TaskTree", fields: [parentTaskId], references: [id])
+  children             Task[]      @relation("TaskTree")
+  priority             String
+  status               String
+  riskLevel            String      @default("medium")
+  ownerId              String
+  owner                Member      @relation("TaskOwner", fields: [ownerId], references: [id])
+  acceptorId           String
+  acceptor             Member      @relation("TaskAcceptor", fields: [acceptorId], references: [id])
+  plannedStartAt       DateTime?
+  plannedEndAt         DateTime
+  actualStartAt        DateTime?
+  actualDoneAt         DateTime?
+  acceptanceDoneAt     DateTime?
+  progress             Int         @default(0)
+  estimateHours        Int         @default(0)
+  spentHours           Int         @default(0)
+  remainingHours       Int         @default(0)
+  createdBy            String
+  completionNote       String?
+  acceptanceConclusion String?
+  archived             Boolean     @default(false)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  collaborators        TaskCollaborator[]
+  tags                 TaskTag[]
+  dependenciesFrom     Dependency[] @relation("DependencyFrom")
+  dependenciesTo       Dependency[] @relation("DependencyTo")
+  acceptances          Acceptance[]
+  activities           TaskActivityLog[]
 }
 
-model TaskWatcher {
+model TaskCollaborator {
   id       String @id @default(cuid())
   taskId   String
   memberId String
   task     Task   @relation(fields: [taskId], references: [id])
+  @@unique([taskId, memberId])
 }
 
-model Comment {
+model TaskTag {
+  id     String @id @default(cuid())
+  taskId String
+  tagId  String
+  task   Task   @relation(fields: [taskId], references: [id])
+  tag    Tag    @relation(fields: [tagId], references: [id])
+  @@unique([taskId, tagId])
+}
+
+model Dependency {
+  id               String @id @default(cuid())
+  fromTaskId       String
+  toTaskId         String
+  fromTask         Task   @relation("DependencyFrom", fields: [fromTaskId], references: [id])
+  toTask           Task   @relation("DependencyTo", fields: [toTaskId], references: [id])
+  type             String
+  isHardConstraint Boolean @default(false)
+  lagDays          Int     @default(0)
+  @@unique([fromTaskId, toTaskId])
+}
+
+model Acceptance {
+  id           String   @id @default(cuid())
+  taskId        String
+  task          Task     @relation(fields: [taskId], references: [id])
+  acceptorId    String
+  submittedAt   DateTime
+  status        String
+  comment       String?
+  rejectReason  String?
+  acceptedAt    DateTime?
+  createdAt     DateTime @default(now())
+}
+
+model TaskActivityLog {
   id        String   @id @default(cuid())
   taskId    String
-  memberId  String
-  content   String
-  createdAt DateTime @default(now())
   task      Task     @relation(fields: [taskId], references: [id])
+  actorId   String
+  type      String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model TaskSetting {
+  id       String @id @default(cuid())
+  key      String @unique
+  value    String
 }
 
 model ActivityLog {
@@ -124,6 +265,7 @@ model ActivityLog {
   scope     String
   scopeId   String
   actorId   String
+  eventType String?
   message   String
   createdAt DateTime @default(now())
 }
@@ -139,18 +281,10 @@ model Notification {
   createdAt  DateTime @default(now())
 }
 
-model Tag {
-  id    String @id @default(cuid())
-  name  String
-  color String
-  tasks Task[]
-}
-
-model RecentVisit {
-  id        String   @id @default(cuid())
-  memberId  String
-  type      String
-  targetId  String
-  label     String
-  visitedAt DateTime @default(now())
+model ConfigOption {
+  id       String @id @default(cuid())
+  category String
+  key      String
+  value    String
+  @@unique([category, key])
 }
