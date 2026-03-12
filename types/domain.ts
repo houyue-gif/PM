@@ -9,6 +9,10 @@ export interface Role { id: string; name: string; permissions: string[]; }
 export interface Permission { id: string; key: string; description: string; }
 export interface Tag { id: string; name: string; color: string; }
 
+export type ProjectStatus = "draft" | "active" | "on_hold" | "completed" | "closed" | "archived";
+export type ProjectPhaseType = "initiation" | "planning" | "execution" | "acceptance" | "retrospective";
+export type ProjectRiskLevel = "low" | "medium" | "high" | "critical";
+
 export interface Project {
   id: string;
   code: string;

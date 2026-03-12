@@ -17,7 +17,33 @@ export const teams: Team[] = [
 export const tags: Tag[] = [
   { id: "tag1", name: "Frontend", color: "bg-blue-100 text-blue-700" },
   { id: "tag2", name: "Backend", color: "bg-emerald-100 text-emerald-700" },
-  { id: "tag3", name: "Design", color: "bg-purple-100 text-purple-700" }
+  { id: "tag3", name: "Design", color: "bg-purple-100 text-purple-700" },
+  { id: "tag4", name: "关键项目", color: "bg-amber-100 text-amber-700" }
+];
+
+export const projectTemplates: ProjectTemplate[] = [
+  {
+    id: "tpl1",
+    name: "标准产品研发模板",
+    description: "包含立项-规划-执行-验收-复盘完整阶段与核心里程碑",
+    projectType: "product",
+    defaultPhaseNames: ["立项", "规划", "执行", "验收", "复盘"],
+    defaultMilestones: [{ name: "需求冻结", kind: "quality_gate" }, { name: "Beta 发布", kind: "release" }, { name: "正式上线", kind: "go_live" }],
+    defaultTags: ["Frontend", "Backend"],
+    system: true,
+    enabled: true
+  },
+  {
+    id: "tpl2",
+    name: "交付项目模板",
+    description: "偏客户交付场景，强调评审与里程碑验收",
+    projectType: "delivery",
+    defaultPhaseNames: ["立项", "规划", "执行", "验收"],
+    defaultMilestones: [{ name: "方案评审", kind: "business" }, { name: "验收签收", kind: "quality_gate" }],
+    defaultTags: ["关键项目"],
+    system: true,
+    enabled: true
+  }
 ];
 
 export const projectTemplates: ProjectTemplate[] = [
