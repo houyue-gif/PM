@@ -1,4 +1,4 @@
-import { activityLogs, currentUserId, projectPhases } from "@/lib/mock-db";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 const schema = z.object({
@@ -13,20 +13,23 @@ const schema = z.object({
   note: z.string().optional()
 });
 
+export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const items = await prisma.projectPhase.findMany({ where: { projectId: params.id }, orderBy: { startDate: "asc" } });
+  return Response.json({ items: items.map((x) => ({ ...x, startDate: x.startDate.toISOString(), endDate: x.endDate.toISOString() })) });
+}
+
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
-  const now = new Date().toISOString();
   const d = parsed.data;
+
   if (d.id) {
-    const exist = projectPhases.find((p) => p.id === d.id && p.projectId === params.id);
-    if (!exist) return Response.json({ error: "阶段不存在" }, { status: 404 });
-    Object.assign(exist, { ...d, startDate: new Date(d.startDate).toISOString(), endDate: new Date(d.endDate).toISOString() });
-    activityLogs.unshift({ id: `a${activityLogs.length + 1}`, scope: "project", scopeId: params.id, actorId: currentUserId, eventType: "phase_change", message: `更新阶段 ${exist.name}`, createdAt: now });
-    return Response.json({ item: exist });
+    const item = await prisma.projectPhase.update({ where: { id: d.id }, data: { ...d, startDate: new Date(d.startDate), endDate: new Date(d.endDate) } });
+    await prisma.activityLog.create({ data: { scope: "project", scopeId: params.id, actorId: "u1", eventType: "phase_change", message: `更新阶段 ${item.name}` } });
+    return Response.json({ item: { ...item, startDate: item.startDate.toISOString(), endDate: item.endDate.toISOString() } });
   }
-  const item = { id: `ph${projectPhases.length + 1}`, projectId: params.id, ...d, startDate: new Date(d.startDate).toISOString(), endDate: new Date(d.endDate).toISOString() };
-  projectPhases.push(item);
-  activityLogs.unshift({ id: `a${activityLogs.length + 1}`, scope: "project", scopeId: params.id, actorId: currentUserId, eventType: "phase_change", message: `新增阶段 ${item.name}`, createdAt: now });
-  return Response.json({ item });
+
+  const item = await prisma.projectPhase.create({ data: { projectId: params.id, ...d, startDate: new Date(d.startDate), endDate: new Date(d.endDate) } });
+  await prisma.activityLog.create({ data: { scope: "project", scopeId: params.id, actorId: "u1", eventType: "phase_change", message: `新增阶段 ${item.name}` } });
+  return Response.json({ item: { ...item, startDate: item.startDate.toISOString(), endDate: item.endDate.toISOString() } });
 }

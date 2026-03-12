@@ -1,4 +1,4 @@
-import { activityLogs, currentUserId, milestones } from "@/lib/mock-db";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 const schema = z.object({
@@ -15,28 +15,23 @@ const schema = z.object({
   keyNode: z.boolean().default(false)
 });
 
+export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const items = await prisma.milestone.findMany({ where: { projectId: params.id }, orderBy: { targetDate: "asc" } });
+  return Response.json({ items: items.map((x) => ({ ...x, targetDate: x.targetDate.toISOString(), actualDate: x.actualDate?.toISOString() })) });
+}
+
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
   const d = parsed.data;
-  const now = new Date().toISOString();
 
   if (d.id) {
-    const exist = milestones.find((m) => m.id === d.id && m.projectId === params.id);
-    if (!exist) return Response.json({ error: "里程碑不存在" }, { status: 404 });
-    Object.assign(exist, { ...d, targetDate: new Date(d.targetDate).toISOString(), actualDate: d.actualDate ? new Date(d.actualDate).toISOString() : undefined });
-    activityLogs.unshift({ id: `a${activityLogs.length + 1}`, scope: "project", scopeId: params.id, actorId: currentUserId, eventType: "milestone_change", message: `更新里程碑 ${exist.name}`, createdAt: now });
-    return Response.json({ item: exist });
+    const item = await prisma.milestone.update({ where: { id: d.id }, data: { ...d, targetDate: new Date(d.targetDate), actualDate: d.actualDate ? new Date(d.actualDate) : null } });
+    await prisma.activityLog.create({ data: { scope: "project", scopeId: params.id, actorId: "u1", eventType: "milestone_change", message: `更新里程碑 ${item.name}` } });
+    return Response.json({ item: { ...item, targetDate: item.targetDate.toISOString(), actualDate: item.actualDate?.toISOString() } });
   }
 
-  const item = {
-    id: `ms${milestones.length + 1}`,
-    projectId: params.id,
-    ...d,
-    targetDate: new Date(d.targetDate).toISOString(),
-    actualDate: d.actualDate ? new Date(d.actualDate).toISOString() : undefined
-  };
-  milestones.push(item);
-  activityLogs.unshift({ id: `a${activityLogs.length + 1}`, scope: "project", scopeId: params.id, actorId: currentUserId, eventType: "milestone_change", message: `新增里程碑 ${item.name}`, createdAt: now });
-  return Response.json({ item });
+  const item = await prisma.milestone.create({ data: { projectId: params.id, ...d, targetDate: new Date(d.targetDate), actualDate: d.actualDate ? new Date(d.actualDate) : null } });
+  await prisma.activityLog.create({ data: { scope: "project", scopeId: params.id, actorId: "u1", eventType: "milestone_change", message: `新增里程碑 ${item.name}` } });
+  return Response.json({ item: { ...item, targetDate: item.targetDate.toISOString(), actualDate: item.actualDate?.toISOString() } });
 }

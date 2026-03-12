@@ -14,6 +14,8 @@ export function ProjectCreateWizard({ presetTemplate = "" }: { presetTemplate?: 
   const [step, setStep] = useState(1);
   const [mode, setMode] = useState<"blank" | "template" | "copy">(presetTemplate ? "template" : "blank");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [ok, setOk] = useState("");
   const [form, setForm] = useState({
     templateId: presetTemplate,
     sourceProjectId: "",
@@ -45,11 +47,15 @@ export function ProjectCreateWizard({ presetTemplate = "" }: { presetTemplate?: 
     const err = validateStep1();
     if (err) return setError(err);
     setError("");
+    setSaving(true);
     try {
       const res = await postJson<{ item: { id: string } }>("/api/projects", { ...form, mode });
+      setOk("创建成功，正在跳转...");
       router.push(`/app/projects/${res.item.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "创建失败");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -109,12 +115,13 @@ export function ProjectCreateWizard({ presetTemplate = "" }: { presetTemplate?: 
         )}
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {ok && <p className="mt-2 text-sm text-emerald-600">{ok}</p>}
 
         <div className="mt-4 flex justify-between">
           <Button variant="secondary" onClick={() => setStep((s) => Math.max(1, s - 1))}>上一步</Button>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={create}>最小字段快速创建</Button>
-            {step < 3 ? <Button onClick={() => { const err = step === 1 ? validateStep1() : ""; if (err) return setError(err); setError(""); setStep(step + 1); }}>下一步</Button> : <Button onClick={create}>创建项目</Button>}
+            <Button variant="secondary" disabled={saving} onClick={create}>{saving ? "保存中..." : "最小字段快速创建"}</Button>
+            {step < 3 ? <Button disabled={saving} onClick={() => { const err = step === 1 ? validateStep1() : ""; if (err) return setError(err); setError(""); setStep(step + 1); }}>下一步</Button> : <Button disabled={saving} onClick={create}>{saving ? "保存中..." : "创建项目"}</Button>}
           </div>
         </div>
       </Card>
