@@ -15,6 +15,7 @@ export function Topbar() {
   const [results, setResults] = useState<SearchItem[]>([]);
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [searchFocus, setSearchFocus] = useState(false);
 
   useEffect(() => {
     getJson<{ items: RecentItem[] }>("/app/api/recent-visits").then((res) => setRecent(res.items));
@@ -30,7 +31,7 @@ export function Topbar() {
     return () => clearTimeout(id);
   }, [q]);
 
-  const showPanel = useMemo(() => q.trim().length > 0 || recent.length > 0, [q, recent]);
+  const showPanel = useMemo(() => searchFocus && (q.trim().length > 0 || recent.length > 0), [q, recent, searchFocus]);
 
   return (
     <div className="relative flex items-center gap-3 border-b border-slate-200 bg-white px-6 py-3">
@@ -44,7 +45,7 @@ export function Topbar() {
       </select>
 
       <div className="relative">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="全局搜索项目、任务..." className="w-[32rem]" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => setSearchFocus(true)} onBlur={() => setTimeout(() => setSearchFocus(false), 120)} placeholder="全局搜索项目、任务..." className="w-[32rem]" />
         {showPanel && (
           <div className="absolute left-0 top-12 z-20 w-[32rem] rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
             {q.trim() ? (
