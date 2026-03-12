@@ -1,2 +1,2 @@
-import { TaskCenter } from "@/components/tasks/task-center";
-export default function TasksPage() { return <TaskCenter />; }
+import { TaskModule } from "@/components/tasks/task-module";
+export default function TasksPage() { return <TaskModule />; }

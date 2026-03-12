@@ -1,19 +1,16 @@
-import { comments, notifications } from "@/lib/mock-db";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 const schema = z.object({ content: z.string().min(1) });
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
-  return Response.json({ items: comments.filter((c) => c.taskId === params.id) });
+  const items = await prisma.taskActivityLog.findMany({ where: { taskId: params.id, type: "comment" }, orderBy: { createdAt: "asc" } });
+  return Response.json({ items: items.map((x) => ({ id: x.id, memberId: x.actorId, content: x.message, createdAt: x.createdAt.toISOString() })) });
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
-  const item = { id: `c${comments.length + 1}`, taskId: params.id, memberId: "u1", content: parsed.data.content, createdAt: new Date().toISOString() };
-  comments.unshift(item);
-  if (parsed.data.content.includes("@")) {
-    notifications.unshift({ id: `n${notifications.length + 1}`, memberId: "u2", type: "mention", title: "你在评论中被提及", targetType: "task", targetId: params.id, read: false, createdAt: new Date().toISOString() });
-  }
-  return Response.json({ item });
+  const item = await prisma.taskActivityLog.create({ data: { taskId: params.id, actorId: "u1", type: "comment", message: parsed.data.content } });
+  return Response.json({ item: { id: item.id, memberId: item.actorId, content: item.message, createdAt: item.createdAt.toISOString() } });
 }

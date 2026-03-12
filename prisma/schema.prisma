@@ -8,10 +8,10 @@ datasource db {
 }
 
 model Workspace {
-  id      String   @id @default(cuid())
-  name    String
-  members Member[]
-  teams   Team[]
+  id       String    @id @default(cuid())
+  name     String
+  members  Member[]
+  teams    Team[]
   projects Project[]
 }
 
@@ -36,6 +36,8 @@ model Member {
   ownedProjects  Project[]       @relation("ProjectOwner")
   phases         ProjectPhase[]
   milestones     Milestone[]
+  ownedTasks     Task[]          @relation("TaskOwner")
+  acceptedTasks  Task[]          @relation("TaskAcceptor")
 }
 
 
@@ -49,15 +51,16 @@ model TeamMember {
 }
 
 model Tag {
-  id    String @id @default(cuid())
-  name  String @unique
-  color String
+  id       String @id @default(cuid())
+  name     String @unique
+  color    String
   projects ProjectTag[]
+  tasks    TaskTag[]
 }
 
 model Project {
-  id            String          @id @default(cuid())
-  code          String          @unique
+  id            String           @id @default(cuid())
+  code          String           @unique
   name          String
   description   String
   status        String
@@ -65,27 +68,28 @@ model Project {
   type          String
   businessLine  String
   ownerId       String
-  owner         Member          @relation("ProjectOwner", fields: [ownerId], references: [id])
+  owner         Member           @relation("ProjectOwner", fields: [ownerId], references: [id])
   teamId        String
-  team          Team            @relation(fields: [teamId], references: [id])
+  team          Team             @relation(fields: [teamId], references: [id])
   workspaceId   String
-  workspace     Workspace       @relation(fields: [workspaceId], references: [id])
-  visibility    String          @default("workspace")
-  archived      Boolean         @default(false)
-  progress      Int             @default(0)
-  scheduleDelta Int             @default(0)
-  health        String          @default("good")
-  riskLevel     String          @default("low")
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id])
+  visibility    String           @default("workspace")
+  archived      Boolean          @default(false)
+  progress      Int              @default(0)
+  scheduleDelta Int              @default(0)
+  health        String           @default("good")
+  riskLevel     String           @default("low")
   templateId    String?
   template      ProjectTemplate? @relation(fields: [templateId], references: [id])
   startDate     DateTime
   endDate       DateTime
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   members       ProjectMember[]
   tags          ProjectTag[]
   phases        ProjectPhase[]
   milestones    Milestone[]
+  tasks         Task[]
 }
 
 model ProjectMember {
@@ -120,6 +124,7 @@ model ProjectPhase {
   status    String
   keyNode   Boolean  @default(false)
   note      String?
+  tasks     Task[]
 }
 
 model Milestone {
@@ -137,6 +142,7 @@ model Milestone {
   relatedTaskCount Int      @default(0)
   keyNode          Boolean  @default(false)
   note             String?
+  tasks            Task[]
 }
 
 model ProjectTemplate {
@@ -151,6 +157,108 @@ model ProjectTemplate {
   enabled           Boolean  @default(true)
   createdAt         DateTime @default(now())
   projects          Project[]
+}
+
+model Task {
+  id                   String      @id @default(cuid())
+  taskNo               String      @unique
+  title                String
+  description          String      @default("")
+  projectId            String
+  project              Project     @relation(fields: [projectId], references: [id])
+  phaseId              String?
+  phase                ProjectPhase? @relation(fields: [phaseId], references: [id])
+  milestoneId          String?
+  milestone            Milestone?  @relation(fields: [milestoneId], references: [id])
+  parentTaskId         String?
+  parentTask           Task?       @relation("TaskTree", fields: [parentTaskId], references: [id])
+  children             Task[]      @relation("TaskTree")
+  priority             String
+  status               String
+  riskLevel            String      @default("medium")
+  ownerId              String
+  owner                Member      @relation("TaskOwner", fields: [ownerId], references: [id])
+  acceptorId           String
+  acceptor             Member      @relation("TaskAcceptor", fields: [acceptorId], references: [id])
+  plannedStartAt       DateTime?
+  plannedEndAt         DateTime
+  actualStartAt        DateTime?
+  actualDoneAt         DateTime?
+  acceptanceDoneAt     DateTime?
+  progress             Int         @default(0)
+  estimateHours        Int         @default(0)
+  spentHours           Int         @default(0)
+  remainingHours       Int         @default(0)
+  createdBy            String
+  completionNote       String?
+  acceptanceConclusion String?
+  archived             Boolean     @default(false)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  collaborators        TaskCollaborator[]
+  tags                 TaskTag[]
+  dependenciesFrom     Dependency[] @relation("DependencyFrom")
+  dependenciesTo       Dependency[] @relation("DependencyTo")
+  acceptances          Acceptance[]
+  activities           TaskActivityLog[]
+}
+
+model TaskCollaborator {
+  id       String @id @default(cuid())
+  taskId   String
+  memberId String
+  task     Task   @relation(fields: [taskId], references: [id])
+  @@unique([taskId, memberId])
+}
+
+model TaskTag {
+  id     String @id @default(cuid())
+  taskId String
+  tagId  String
+  task   Task   @relation(fields: [taskId], references: [id])
+  tag    Tag    @relation(fields: [tagId], references: [id])
+  @@unique([taskId, tagId])
+}
+
+model Dependency {
+  id               String @id @default(cuid())
+  fromTaskId       String
+  toTaskId         String
+  fromTask         Task   @relation("DependencyFrom", fields: [fromTaskId], references: [id])
+  toTask           Task   @relation("DependencyTo", fields: [toTaskId], references: [id])
+  type             String
+  isHardConstraint Boolean @default(false)
+  lagDays          Int     @default(0)
+  @@unique([fromTaskId, toTaskId])
+}
+
+model Acceptance {
+  id           String   @id @default(cuid())
+  taskId        String
+  task          Task     @relation(fields: [taskId], references: [id])
+  acceptorId    String
+  submittedAt   DateTime
+  status        String
+  comment       String?
+  rejectReason  String?
+  acceptedAt    DateTime?
+  createdAt     DateTime @default(now())
+}
+
+model TaskActivityLog {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id])
+  actorId   String
+  type      String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model TaskSetting {
+  id       String @id @default(cuid())
+  key      String @unique
+  value    String
 }
 
 model ActivityLog {
