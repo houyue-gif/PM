@@ -17,13 +17,13 @@ export function TaskCenter({ mineOnly = false }: { mineOnly?: boolean }) {
   const [open, setOpen] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
 
-  const { data, isLoading, isError } = useQuery({ queryKey: ["tasks"], queryFn: () => getJson<{ items: Task[] }>("/app/api/tasks") });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["tasks"], queryFn: () => getJson<{ items: Task[] }>("/api/tasks") });
   const tasks = useMemo(() => (mineOnly ? data?.items.filter((t) => t.assigneeId === "u1") : data?.items) ?? [], [data, mineOnly]);
   const active = tasks.find((t) => t.id === open);
 
   const createTask = async () => {
     if (!newTitle.trim()) return;
-    await postJson("/app/api/tasks", { title: newTitle, projectId: "pr1", assigneeId: "u1", priority: "medium" });
+    await postJson("/api/tasks", { title: newTitle, projectId: "pr1", assigneeId: "u1", priority: "medium" });
     setNewTitle("");
     qc.invalidateQueries({ queryKey: ["tasks"] });
   };
@@ -79,7 +79,7 @@ export function TaskCenter({ mineOnly = false }: { mineOnly?: boolean }) {
                         key={next}
                         className="text-xs text-blue-600"
                         onClick={async () => {
-                          await patchJson("/app/api/tasks", { id: t.id, status: next });
+                          await patchJson("/api/tasks", { id: t.id, status: next });
                           qc.invalidateQueries({ queryKey: ["tasks"] });
                         }}
                       >
@@ -115,11 +115,11 @@ function TaskDrawer({ task, onClose }: { task: Task; onClose: () => void }) {
   const [subtaskTitle, setSubtaskTitle] = useState("");
   const [form, setForm] = useState({ title: task.title, description: task.description, assigneeId: task.assigneeId, priority: task.priority, dueDate: task.dueDate.slice(0, 10) });
 
-  const { data: comments } = useQuery({ queryKey: ["comments", task.id], queryFn: () => getJson<{ items: Array<{ id: string; content: string }> }>(`/app/api/tasks/${task.id}/comments`) });
-  const { data: activities } = useQuery({ queryKey: ["activities", task.id], queryFn: () => getJson<{ items: Array<{ id: string; message: string }> }>(`/app/api/activities?scopeId=${task.id}`) });
+  const { data: comments } = useQuery({ queryKey: ["comments", task.id], queryFn: () => getJson<{ items: Array<{ id: string; content: string }> }>(`/api/tasks/${task.id}/comments`) });
+  const { data: activities } = useQuery({ queryKey: ["activities", task.id], queryFn: () => getJson<{ items: Array<{ id: string; message: string }> }>(`/api/activities?scopeId=${task.id}`) });
 
   const save = async () => {
-    await patchJson("/app/api/tasks", { id: task.id, ...form, dueDate: new Date(form.dueDate).toISOString() });
+    await patchJson("/api/tasks", { id: task.id, ...form, dueDate: new Date(form.dueDate).toISOString() });
     qc.invalidateQueries({ queryKey: ["tasks"] });
   };
 
@@ -141,7 +141,7 @@ function TaskDrawer({ task, onClose }: { task: Task; onClose: () => void }) {
         <p className="mb-2 text-xs text-slate-500">子任务</p>
         <div className="mb-2 flex gap-2">
           <Input value={subtaskTitle} onChange={(e) => setSubtaskTitle(e.target.value)} placeholder="新增子任务" />
-          <Button onClick={async () => { if (!subtaskTitle.trim()) return; await patchJson("/app/api/tasks", { id: task.id, subTaskTitle: subtaskTitle }); setSubtaskTitle(""); qc.invalidateQueries({ queryKey: ["tasks"] }); }}>添加</Button>
+          <Button onClick={async () => { if (!subtaskTitle.trim()) return; await patchJson("/api/tasks", { id: task.id, subTaskTitle: subtaskTitle }); setSubtaskTitle(""); qc.invalidateQueries({ queryKey: ["tasks"] }); }}>添加</Button>
         </div>
         <div className="space-y-1">
           {task.subTaskIds.length ? task.subTaskIds.map((id) => <p key={id} className="rounded bg-slate-50 px-2 py-1 text-sm">子任务 #{id}</p>) : <p className="text-sm text-slate-500">暂无子任务</p>}
@@ -156,7 +156,7 @@ function TaskDrawer({ task, onClose }: { task: Task; onClose: () => void }) {
       <div className="mt-5">
         <p className="mb-2 text-xs text-slate-500">评论区（支持 @提及）</p>
         <div className="space-y-2">{comments?.items.map((c) => <div key={c.id} className="rounded-lg bg-slate-50 p-2 text-sm" dangerouslySetInnerHTML={{ __html: c.content.replace(/@(\w+)/g, '<span class="text-blue-600 font-medium">@$1</span>') }} />)}</div>
-        <div className="mt-3 flex gap-2"><Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="发表评论，支持 @Bruce" /><Button onClick={async () => { if (!comment.trim()) return; await postJson(`/app/api/tasks/${task.id}/comments`, { content: comment }); setComment(""); qc.invalidateQueries({ queryKey: ["comments", task.id] }); }}>发送</Button></div>
+        <div className="mt-3 flex gap-2"><Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="发表评论，支持 @Bruce" /><Button onClick={async () => { if (!comment.trim()) return; await postJson(`/api/tasks/${task.id}/comments`, { content: comment }); setComment(""); qc.invalidateQueries({ queryKey: ["comments", task.id] }); }}>发送</Button></div>
       </div>
 
       <div className="mt-5">

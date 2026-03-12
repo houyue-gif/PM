@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const items = [
   ["工作台", "/app"],
   ["项目", "/app/projects"],
+  ["项目模板", "/app/projects/templates"],
   ["任务", "/app/tasks"],
   ["我的任务", "/app/my-tasks"],
   ["团队", "/app/teams"],
