@@ -34,6 +34,25 @@ export const tags: Tag[] = [
   { id: "tag3", name: "Design", color: "bg-purple-100 text-purple-700" }
 ];
 
+
+export const projectTemplates = [
+  {
+    id: "tpl1",
+    name: "标准产品研发模板",
+    description: "包含立项-规划-执行-验收-复盘完整阶段与核心里程碑",
+    projectType: "product",
+    defaultPhaseNames: ["立项", "规划", "执行", "验收", "复盘"],
+    defaultMilestones: [
+      { name: "需求冻结", kind: "quality_gate" },
+      { name: "Beta 发布", kind: "release" },
+      { name: "正式上线", kind: "go_live" }
+    ],
+    defaultTags: ["Frontend", "Backend"],
+    system: true,
+    enabled: true
+  }
+];
+
 export const projects: Project[] = [
   { id: "pr1", name: "PM P0 Launch", description: "搭建首版项目管理平台", status: "active", ownerId: "u2", memberIds: ["u1", "u2", "u3"], workspaceId: "ws_1", startDate: now.toISOString(), endDate: addDays(now, 40).toISOString(), health: "good" },
   { id: "pr2", name: "Design System", description: "统一 B 端组件库规范", status: "on_hold", ownerId: "u1", memberIds: ["u1", "u3"], workspaceId: "ws_1", startDate: subDays(now, 14).toISOString(), endDate: addDays(now, 14).toISOString(), health: "risk" }
